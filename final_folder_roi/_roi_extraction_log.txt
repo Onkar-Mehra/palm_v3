@@ -1,0 +1,7 @@
+Total: 1413
+Detected: 1412
+Fallback: 1
+Failed: 0
+
+Person	Status
+person_1035	no hand detected - center crop used
