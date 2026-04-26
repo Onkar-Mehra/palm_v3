@@ -249,17 +249,9 @@ class PalmDataset(Dataset):
             num_pairs = min(len(rgb_files), len(ir_files))
             
             if self.mode == 'train':
-                # Train uses all pairs except the last one (or all if only one)
-                if num_pairs == 1:
-                    indices = [0]
-                else:
-                    indices = list(range(num_pairs - 1))
+                indices = [0]
             elif self.mode == 'val':
-                # Val uses the last pair (or the only one if just 1)
-                if num_pairs == 1:
-                    indices = [0]
-                else:
-                    indices = [num_pairs - 1]
+                indices = [0]  # same image, but val uses no augmentation
             else:  # 'all'
                 indices = list(range(num_pairs))
             

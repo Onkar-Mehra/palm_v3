@@ -414,6 +414,7 @@ def main():
     
     # Training loop
     best_top1 = 0.0
+    best_metric = -999.0        # tracks val loss improvement (negative = lower is better)
     best_epoch = 0
     history = {'train': [], 'val': [], 'eval': []}
     no_improve_count = 0
@@ -483,10 +484,15 @@ def main():
         logger.info(f"  Best:  Top-1={best_top1:.1f}% (epoch {best_epoch})")
         logger.info("=" * 70)
         
-        # Save best model based on identification Top-1
+        # Save best model based on val loss (reliable) not Top-1 (stuck)
+        # Use val loss for improvement tracking
+        # Top-1 is stuck at 71% due to same-image eval artifact
+        # Val loss is the reliable signal of real learning
+        current_metric = -val_metrics['loss']   # negative: higher = better
         current_top1 = eval_metrics['top1'] if eval_metrics else val_metrics['arcface_acc']
-        
-        if current_top1 > best_top1:
+
+        if current_metric > best_metric:
+            best_metric = current_metric
             best_top1 = current_top1
             best_epoch = epoch
             no_improve_count = 0

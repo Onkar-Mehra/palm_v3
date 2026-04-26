@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Palm Biometric System</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #f5f7fa;
+        color: #2d3748;
+        line-height: 1.5;
+        padding: 20px;
+    }
+    .container { max-width: 900px; margin: 0 auto; }
+    h1 { color: #1a202c; margin-bottom: 10px; font-size: 28px; }
+    .subtitle { color: #718096; margin-bottom: 30px; font-size: 14px; }
+    .config {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 6px;
+        padding: 12px 15px;
+        margin-bottom: 20px;
+        font-size: 13px;
+    }
+    .config input { width: 300px; padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px; }
+    .tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; }
+    .tab {
+        padding: 10px 20px;
+        cursor: pointer;
+        background: transparent;
+        border: none;
+        font-size: 14px;
+        font-weight: 500;
+        color: #718096;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+    }
+    .tab.active { color: #4299e1; border-bottom-color: #4299e1; }
+    .tab:hover { color: #2b6cb0; }
+    .panel { display: none; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .panel.active { display: block; }
+    .panel h2 { margin-bottom: 20px; font-size: 20px; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 5px; font-weight: 500; font-size: 14px; }
+    .form-group input[type="text"],
+    .form-group input[type="file"],
+    .form-group select {
+        width: 100%; padding: 10px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px;
+    }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    button {
+        background: #4299e1; color: white; padding: 10px 20px; border: none;
+        border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500;
+    }
+    button:hover { background: #2b6cb0; }
+    button:disabled { background: #a0aec0; cursor: not-allowed; }
+    button.danger { background: #e53e3e; }
+    button.danger:hover { background: #c53030; }
+    .result {
+        margin-top: 20px; padding: 15px; border-radius: 6px;
+        font-family: monospace; font-size: 13px; white-space: pre-wrap;
+        max-height: 400px; overflow-y: auto;
+    }
+    .result.success { background: #c6f6d5; color: #22543d; border-left: 4px solid #38a169; }
+    .result.error { background: #fed7d7; color: #742a2a; border-left: 4px solid #e53e3e; }
+    .result.info { background: #bee3f8; color: #2c5282; border-left: 4px solid #4299e1; }
+    .badge {
+        display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px;
+        font-weight: 600; margin-left: 5px;
+    }
+    .badge.success { background: #38a169; color: white; }
+    .badge.fail { background: #e53e3e; color: white; }
+    .matches-list { margin-top: 10px; padding-left: 20px; }
+    .progress-bar {
+        height: 20px; background: #edf2f7; border-radius: 4px;
+        overflow: hidden; margin-top: 4px;
+    }
+    .progress-fill {
+        height: 100%; background: #48bb78; transition: width 0.3s;
+        display: flex; align-items: center; justify-content: center;
+        color: white; font-size: 11px; font-weight: 600;
+    }
+</style>
+</head>
+<body>
+<div class="container">
+    <h1>Palm Biometric System</h1>
+    <p class="subtitle">Test interface for the Palm Biometric API</p>
+
+    <div class="config">
+        <strong>API URL:</strong>
+        <input type="text" id="apiUrl" value="http://localhost:5000" />
+        <button onclick="checkHealth()">Check Connection</button>
+        <span id="healthStatus"></span>
+    </div>
+
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab(event, 'enroll')">Enroll</button>
+        <button class="tab" onclick="switchTab(event, 'identify')">Identify</button>
+        <button class="tab" onclick="switchTab(event, 'verify')">Verify</button>
+        <button class="tab" onclick="switchTab(event, 'list')">Database</button>
+    </div>
+
+    <!-- ENROLLMENT PANEL -->
+    <div id="enroll" class="panel active">
+        <h2>Enroll New Person</h2>
+        <form id="enrollForm">
+            <div class="form-group">
+                <label>Name:</label>
+                <input type="text" id="enrollName" placeholder="e.g., John Doe" required />
+            </div>
+            <div class="form-group">
+                <label>Mode:</label>
+                <select id="enrollMode" onchange="updateEnrollFields()">
+                    <option value="quick">Quick (1 RGB + 1 IR — fastest, best for trained people)</option>
+                    <option value="full">Full (3 RGB + 3 IR — best accuracy, recommended)</option>
+                    <option value="rgb_only">RGB Only (3 RGB, IR auto-generated)</option>
+                    <option value="quick_rgb">Quick RGB (1 RGB, IR auto-generated)</option>
+                </select>
+            </div>
+            <div id="enrollFields"></div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="enrollOverwrite" />
+                    Overwrite if already enrolled
+                </label>
+            </div>
+            <button type="submit">Enroll</button>
+        </form>
+        <div id="enrollResult"></div>
+    </div>
+
+    <!-- IDENTIFY PANEL -->
+    <div id="identify" class="panel">
+        <h2>Identify Person</h2>
+        <form id="identifyForm">
+            <div class="form-group">
+                <label>Mode:</label>
+                <select id="idMode" onchange="updateIdentifyFields()">
+                    <option value="full">RGB + IR (recommended)</option>
+                    <option value="rgb_only">RGB Only (IR auto-generated)</option>
+                </select>
+            </div>
+            <div id="identifyFields"></div>
+            <div class="form-group">
+                <label>Top K results:</label>
+                <input type="text" id="topK" value="5" />
+            </div>
+            <button type="submit">Identify</button>
+        </form>
+        <div id="identifyResult"></div>
+    </div>
+
+    <!-- VERIFY PANEL -->
+    <div id="verify" class="panel">
+        <h2>Verify Identity</h2>
+        <p style="color: #718096; margin-bottom: 15px;">
+            1-to-1 match: "Is this person who they claim to be?"
+        </p>
+        <form id="verifyForm">
+            <div class="form-group">
+                <label>Claimed name:</label>
+                <input type="text" id="verifyName" required />
+            </div>
+            <div class="form-group">
+                <label>RGB image:</label>
+                <input type="file" id="verifyRgb" accept="image/*" required />
+            </div>
+            <div class="form-group">
+                <label>IR image:</label>
+                <input type="file" id="verifyIr" accept="image/*" required />
+            </div>
+            <button type="submit">Verify</button>
+        </form>
+        <div id="verifyResult"></div>
+    </div>
+
+    <!-- LIST/DATABASE PANEL -->
+    <div id="list" class="panel">
+        <h2>Database</h2>
+        <button onclick="loadList()">Refresh List</button>
+        <button onclick="clearDatabase()" class="danger" style="margin-left: 10px;">Clear All</button>
+        <div id="listResult"></div>
+    </div>
+</div>
+
+<script>
+// ============================================================
+// API URL
+// ============================================================
+function getApiUrl() {
+    return document.getElementById('apiUrl').value.trim().replace(/\/$/, '');
+}
+
+// ============================================================
+// TAB SWITCHING
+// ============================================================
+function switchTab(e, id) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    e.target.classList.add('active');
+    document.getElementById(id).classList.add('active');
+    if (id === 'list') loadList();
+}
+
+// ============================================================
+// HEALTH CHECK
+// ============================================================
+async function checkHealth() {
+    const status = document.getElementById('healthStatus');
+    status.textContent = 'Checking...';
+    try {
+        const r = await fetch(`${getApiUrl()}/health`);
+        const data = await r.json();
+        if (data.success) {
+            status.innerHTML = `<span class="badge success">Connected</span> ${data.enrolled_count} enrolled`;
+        } else {
+            status.innerHTML = `<span class="badge fail">Error</span>`;
+        }
+    } catch (e) {
+        status.innerHTML = `<span class="badge fail">Offline</span> ${e.message}`;
+    }
+}
+
+// ============================================================
+// ENROLLMENT
+// ============================================================
+function updateEnrollFields() {
+    const mode = document.getElementById('enrollMode').value;
+    const container = document.getElementById('enrollFields');
+    
+    if (mode === 'full') {
+        container.innerHTML = `
+            <p style="color:#718096;font-size:13px;margin-bottom:10px;">3 RGB + 3 IR images. Best accuracy.</p>
+            <div class="form-grid">
+                <div class="form-group"><label>RGB 1:</label><input type="file" id="rgb_1" accept="image/*" required /></div>
+                <div class="form-group"><label>RGB 2:</label><input type="file" id="rgb_2" accept="image/*" required /></div>
+                <div class="form-group"><label>RGB 3:</label><input type="file" id="rgb_3" accept="image/*" required /></div>
+                <div class="form-group"><label>IR 1:</label><input type="file" id="ir_1" accept="image/*" required /></div>
+                <div class="form-group"><label>IR 2:</label><input type="file" id="ir_2" accept="image/*" required /></div>
+                <div class="form-group"><label>IR 3:</label><input type="file" id="ir_3" accept="image/*" required /></div>
+            </div>`;
+    } else if (mode === 'rgb_only') {
+        container.innerHTML = `
+            <p style="color:#718096;font-size:13px;margin-bottom:10px;">3 RGB only. IR auto-generated.</p>
+            <div class="form-grid">
+                <div class="form-group"><label>RGB 1:</label><input type="file" id="rgb_1" accept="image/*" required /></div>
+                <div class="form-group"><label>RGB 2:</label><input type="file" id="rgb_2" accept="image/*" required /></div>
+                <div class="form-group"><label>RGB 3:</label><input type="file" id="rgb_3" accept="image/*" required /></div>
+            </div>`;
+    } else if (mode === 'quick') {
+        container.innerHTML = `
+            <p style="color:#718096;font-size:13px;margin-bottom:10px;">1 RGB + 1 IR. Fast.</p>
+            <div class="form-group"><label>RGB:</label><input type="file" id="rgb" accept="image/*" required /></div>
+            <div class="form-group"><label>IR:</label><input type="file" id="ir" accept="image/*" required /></div>`;
+    } else {
+        container.innerHTML = `
+            <p style="color:#718096;font-size:13px;margin-bottom:10px;">1 RGB only. IR auto-generated.</p>
+            <div class="form-group"><label>RGB:</label><input type="file" id="rgb" accept="image/*" required /></div>`;
+    }
+}
+
+document.getElementById('enrollForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const result = document.getElementById('enrollResult');
+    const mode = document.getElementById('enrollMode').value;
+    const name = document.getElementById('enrollName').value.trim();
+    const overwrite = document.getElementById('enrollOverwrite').checked;
+    
+    result.className = 'result info';
+    result.textContent = 'Enrolling...';
+    
+    const fd = new FormData();
+    fd.append('name', name);
+    fd.append('overwrite', overwrite ? 'true' : 'false');
+    
+    try {
+        if (mode === 'full' || mode === 'rgb_only') {
+            for (let i = 1; i <= 3; i++) {
+                fd.append(`rgb_${i}`, document.getElementById(`rgb_${i}`).files[0]);
+            }
+            if (mode === 'full') {
+                for (let i = 1; i <= 3; i++) {
+                    fd.append(`ir_${i}`, document.getElementById(`ir_${i}`).files[0]);
+                }
+            }
+        } else {
+            fd.append('rgb', document.getElementById('rgb').files[0]);
+            if (mode === 'quick') {
+                fd.append('ir', document.getElementById('ir').files[0]);
+            }
+        }
+        
+        const r = await fetch(`${getApiUrl()}/enroll/${mode}`, { method: 'POST', body: fd });
+        const data = await r.json();
+        
+        if (data.success) {
+            result.className = 'result success';
+            result.textContent = `✓ Enrolled: ${data.name}\n` +
+                `Mode: ${data.mode}\n` +
+                `Total enrolled: ${data.enrolled_count}\n` +
+                `Expected accuracy: ${data.expected_accuracy || 'N/A'}`;
+        } else {
+            result.className = 'result error';
+            result.textContent = `✗ ${data.error_code}: ${data.error}`;
+        }
+    } catch (err) {
+        result.className = 'result error';
+        result.textContent = `Network error: ${err.message}`;
+    }
+});
+
+// ============================================================
+// IDENTIFICATION
+// ============================================================
+function updateIdentifyFields() {
+    const mode = document.getElementById('idMode').value;
+    const container = document.getElementById('identifyFields');
+    
+    if (mode === 'full') {
+        container.innerHTML = `
+            <div class="form-group"><label>RGB image:</label><input type="file" id="idRgb" accept="image/*" required /></div>
+            <div class="form-group"><label>IR image:</label><input type="file" id="idIr" accept="image/*" required /></div>`;
+    } else {
+        container.innerHTML = `
+            <div class="form-group"><label>RGB image:</label><input type="file" id="idRgb" accept="image/*" required /></div>`;
+    }
+}
+
+document.getElementById('identifyForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const result = document.getElementById('identifyResult');
+    const mode = document.getElementById('idMode').value;
+    
+    result.className = 'result info';
+    result.textContent = 'Identifying...';
+    
+    const fd = new FormData();
+    fd.append('rgb', document.getElementById('idRgb').files[0]);
+    if (mode === 'full') {
+        fd.append('ir', document.getElementById('idIr').files[0]);
+    }
+    fd.append('top_k', document.getElementById('topK').value || '5');
+    
+    try {
+        const url = mode === 'full' ? '/identify' : '/identify/rgb_only';
+        const r = await fetch(`${getApiUrl()}${url}`, { method: 'POST', body: fd });
+        const data = await r.json();
+        
+        if (data.success && data.identified) {
+            let html = `✓ IDENTIFIED: ${data.name}\nConfidence: ${data.confidence}%\n\nTop matches:\n`;
+            data.top_matches.forEach(m => {
+                html += `  ${m.rank}. ${m.name} — ${m.confidence}%\n`;
+            });
+            result.className = 'result success';
+            result.textContent = html;
+        } else if (data.success && !data.identified) {
+            let html = `Status: ${data.status}\n${data.message}\n\nTop matches:\n`;
+            (data.top_matches || []).forEach(m => {
+                html += `  ${m.rank}. ${m.name} — ${m.confidence}%\n`;
+            });
+            result.className = 'result info';
+            result.textContent = html;
+        } else {
+            result.className = 'result error';
+            result.textContent = `${data.error_code}: ${data.error}`;
+        }
+    } catch (err) {
+        result.className = 'result error';
+        result.textContent = `Network error: ${err.message}`;
+    }
+});
+
+// ============================================================
+// VERIFY
+// ============================================================
+document.getElementById('verifyForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const result = document.getElementById('verifyResult');
+    
+    result.className = 'result info';
+    result.textContent = 'Verifying...';
+    
+    const fd = new FormData();
+    fd.append('name', document.getElementById('verifyName').value.trim());
+    fd.append('rgb', document.getElementById('verifyRgb').files[0]);
+    fd.append('ir', document.getElementById('verifyIr').files[0]);
+    
+    try {
+        const r = await fetch(`${getApiUrl()}/verify`, { method: 'POST', body: fd });
+        const data = await r.json();
+        
+        if (data.success) {
+            result.className = data.verified ? 'result success' : 'result error';
+            result.textContent = `${data.verified ? '✓' : '✗'} ${data.message}\n` +
+                `Confidence: ${data.confidence}%\nThreshold: ${(data.threshold * 100).toFixed(2)}%`;
+        } else {
+            result.className = 'result error';
+            result.textContent = `${data.error_code}: ${data.error}`;
+        }
+    } catch (err) {
+        result.className = 'result error';
+        result.textContent = `Network error: ${err.message}`;
+    }
+});
+
+// ============================================================
+// DATABASE LIST
+// ============================================================
+async function loadList() {
+    const result = document.getElementById('listResult');
+    result.className = 'result info';
+    result.textContent = 'Loading...';
+    
+    try {
+        const r = await fetch(`${getApiUrl()}/enrolled`);
+        const data = await r.json();
+        
+        if (data.success) {
+            if (data.count === 0) {
+                result.className = 'result info';
+                result.textContent = 'No people enrolled yet.';
+            } else {
+                let html = `Total enrolled: ${data.count}\n\n`;
+                data.names.forEach((n, i) => {
+                    html += `  ${i + 1}. ${n}\n`;
+                });
+                result.className = 'result success';
+                result.textContent = html;
+            }
+        } else {
+            result.className = 'result error';
+            result.textContent = `Error: ${data.error}`;
+        }
+    } catch (err) {
+        result.className = 'result error';
+        result.textContent = `Network error: ${err.message}`;
+    }
+}
+
+async function clearDatabase() {
+    if (!confirm('This will remove ALL enrolled people. Continue?')) return;
+    
+    try {
+        const r = await fetch(`${getApiUrl()}/enrolled/clear?confirm=yes`, { method: 'DELETE' });
+        const data = await r.json();
+        alert(data.success ? `Cleared ${data.cleared_count} people` : `Error: ${data.error}`);
+        loadList();
+    } catch (err) {
+        alert(`Network error: ${err.message}`);
+    }
+}
+
+// Initialize
+updateEnrollFields();
+updateIdentifyFields();
+checkHealth();
+</script>
+</body>
+</html>
