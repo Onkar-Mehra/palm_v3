@@ -157,6 +157,44 @@ def error_response(message: str, code: str = 'ERROR', status_code: int = 400, **
 
 
 # ============================================================
+# THUMBNAIL GENERATOR
+# ============================================================
+def _make_thumbnail(image_path: str, size: int = 120) -> Optional[str]:
+    """
+    Create a small base64 thumbnail from an image file.
+    Returns base64 string like 'data:image/jpeg;base64,...'
+    or None if failed.
+    Size: thumbnail will be size x size pixels (square crop).
+    """
+    try:
+        img = cv2.imread(str(image_path))
+        if img is None:
+            return None
+
+        h, w = img.shape[:2]
+
+        # Square center crop first
+        s = min(h, w)
+        y0 = (h - s) // 2
+        x0 = (w - s) // 2
+        img = img[y0:y0 + s, x0:x0 + s]
+
+        # Resize to thumbnail size
+        img = cv2.resize(img, (size, size), interpolation=cv2.INTER_AREA)
+
+        # Encode to JPEG bytes
+        encode_param = [cv2.IMWRITE_JPEG_QUALITY, 70]
+        _, buffer = cv2.imencode('.jpg', img, encode_param)
+
+        # Convert to base64
+        b64 = base64.b64encode(buffer).decode('utf-8')
+        return f"data:image/jpeg;base64,{b64}"
+
+    except Exception:
+        return None
+
+
+# ============================================================
 # IMAGE INPUT HANDLING
 # ============================================================
 def _allowed_file(filename: str) -> bool:
@@ -420,12 +458,15 @@ def enroll_full():
         success = _enroller.enroll_full(name, rgb_paths, ir_paths, overwrite=True)
         
         if success:
+            # Generate thumbnail from first RGB image
+            thumbnail = _make_thumbnail(rgb_paths[0]) if rgb_paths else None
             return success_response({
                 'mode': 'full',
                 'name': name,
                 'images_used': 3,
                 'enrolled_count': _palm_system.num_enrolled(),
                 'expected_accuracy': '92-95% for new people, 97-99% for trained',
+                'thumbnail': thumbnail,
             })
         else:
             return error_response(
@@ -475,6 +516,7 @@ def enroll_rgb_only():
         success = _enroller.enroll_rgb_only(name, rgb_paths, overwrite=True)
         
         if success:
+            thumbnail = _make_thumbnail(rgb_paths[0]) if rgb_paths else None
             return success_response({
                 'mode': 'rgb_only',
                 'name': name,
@@ -482,6 +524,7 @@ def enroll_rgb_only():
                 'ir_generated': True,
                 'enrolled_count': _palm_system.num_enrolled(),
                 'expected_accuracy': '90-93% for new people, 95-97% for trained',
+                'thumbnail': thumbnail,
             })
         else:
             return error_response('Enrollment failed', 'ENROLLMENT_FAILED', 500)
@@ -523,12 +566,14 @@ def enroll_quick():
         success = _enroller.enroll_quick(name, rgb_path, ir_path, overwrite=True)
         
         if success:
+            thumbnail = _make_thumbnail(rgb_path) if rgb_path else None
             return success_response({
                 'mode': 'quick',
                 'name': name,
                 'images_used': 1,
                 'enrolled_count': _palm_system.num_enrolled(),
                 'expected_accuracy': '85-90% for new people, 95-98% for trained',
+                'thumbnail': thumbnail,
             })
         else:
             return error_response('Enrollment failed', 'ENROLLMENT_FAILED', 500)
@@ -566,6 +611,7 @@ def enroll_quick_rgb():
         success = _enroller.enroll_quick_rgb(name, rgb_path, overwrite=True)
         
         if success:
+            thumbnail = _make_thumbnail(rgb_path) if rgb_path else None
             return success_response({
                 'mode': 'quick_rgb',
                 'name': name,
@@ -573,6 +619,7 @@ def enroll_quick_rgb():
                 'ir_generated': True,
                 'enrolled_count': _palm_system.num_enrolled(),
                 'expected_accuracy': '82-88% for new people, 92-96% for trained',
+                'thumbnail': thumbnail,
             })
         else:
             return error_response('Enrollment failed', 'ENROLLMENT_FAILED', 500)
@@ -645,6 +692,7 @@ def identify():
             'confidence_raw': float(result.confidence),
             'status': result.status,
             'threshold': float(threshold if threshold is not None else _palm_system.match_threshold),
+            'thumbnail': _make_thumbnail(rgb_path) if rgb_path else None,
             'top_matches': [
                 {
                     'rank': i + 1,

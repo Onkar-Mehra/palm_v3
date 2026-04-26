@@ -81,6 +81,27 @@
         display: flex; align-items: center; justify-content: center;
         color: white; font-size: 11px; font-weight: 600;
     }
+    /* Thumbnail styles */
+    .thumb-container {
+        display: flex; align-items: flex-start; gap: 15px; margin-top: 15px;
+    }
+    .thumb-box {
+        text-align: center; flex-shrink: 0;
+    }
+    .thumb-box img {
+        width: 120px; height: 120px; border-radius: 8px;
+        object-fit: cover; display: block;
+        border: 2px solid #cbd5e0;
+    }
+    .thumb-box img.success-border { border-color: #38a169; }
+    .thumb-box img.error-border  { border-color: #e53e3e; }
+    .thumb-box p {
+        font-size: 11px; color: #718096; margin-top: 4px;
+        text-align: center;
+    }
+    .thumb-result {
+        flex: 1;
+    }
 </style>
 </head>
 <body>
@@ -91,6 +112,9 @@
     <div class="config">
         <strong>API URL:</strong>
         <input type="text" id="apiUrl" value="http://localhost:5000" />
+        &nbsp;&nbsp;
+        <strong>API Key:</strong>
+        <input type="text" id="apiKey" value="palm2026demo" style="width:150px;" />
         <button onclick="checkHealth()">Check Connection</button>
         <span id="healthStatus"></span>
     </div>
@@ -128,7 +152,17 @@
             </div>
             <button type="submit">Enroll</button>
         </form>
-        <div id="enrollResult"></div>
+        <!-- Thumbnail + result shown side by side -->
+        <div class="thumb-container" id="enrollThumbContainer" style="display:none;">
+            <div class="thumb-box">
+                <img id="enrollThumb" src="" alt="Enrolled palm" />
+                <p>Uploaded image</p>
+            </div>
+            <div class="thumb-result">
+                <div id="enrollResult"></div>
+            </div>
+        </div>
+        <div id="enrollResult" style="display:none;"></div>
     </div>
 
     <!-- IDENTIFY PANEL -->
@@ -149,7 +183,16 @@
             </div>
             <button type="submit">Identify</button>
         </form>
-        <div id="identifyResult"></div>
+        <div class="thumb-container" id="identifyThumbContainer" style="display:none;">
+            <div class="thumb-box">
+                <img id="identifyThumb" src="" alt="Query palm" />
+                <p>Uploaded image</p>
+            </div>
+            <div class="thumb-result">
+                <div id="identifyResult"></div>
+            </div>
+        </div>
+        <div id="identifyResult" style="display:none;"></div>
     </div>
 
     <!-- VERIFY PANEL -->
@@ -173,7 +216,16 @@
             </div>
             <button type="submit">Verify</button>
         </form>
-        <div id="verifyResult"></div>
+        <div class="thumb-container" id="verifyThumbContainer" style="display:none;">
+            <div class="thumb-box">
+                <img id="verifyThumb" src="" alt="Verify palm" />
+                <p>Uploaded image</p>
+            </div>
+            <div class="thumb-result">
+                <div id="verifyResult"></div>
+            </div>
+        </div>
+        <div id="verifyResult" style="display:none;"></div>
     </div>
 
     <!-- LIST/DATABASE PANEL -->
@@ -191,6 +243,27 @@
 // ============================================================
 function getApiUrl() {
     return document.getElementById('apiUrl').value.trim().replace(/\/$/, '');
+}
+
+function getApiKey() {
+    return document.getElementById('apiKey').value.trim();
+}
+
+function apiHeaders() {
+    return { 'X-API-Key': getApiKey() };
+}
+
+// Show thumbnail helper
+function showThumb(containerId, thumbId, resultId, src, borderClass) {
+    const container = document.getElementById(containerId);
+    const img = document.getElementById(thumbId);
+    const resultDiv = document.getElementById(resultId);
+    if (src) {
+        img.src = src;
+        img.className = borderClass || '';
+        container.style.display = 'flex';
+        resultDiv.style.display = 'block';
+    }
 }
 
 // ============================================================
@@ -263,18 +336,22 @@ function updateEnrollFields() {
 
 document.getElementById('enrollForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const result = document.getElementById('enrollResult');
+    const resultDiv = document.getElementById('enrollResult');
     const mode = document.getElementById('enrollMode').value;
     const name = document.getElementById('enrollName').value.trim();
     const overwrite = document.getElementById('enrollOverwrite').checked;
-    
-    result.className = 'result info';
-    result.textContent = 'Enrolling...';
-    
+
+    // Reset UI
+    document.getElementById('enrollThumbContainer').style.display = 'none';
+    resultDiv.style.display = 'none';
+    resultDiv.className = 'result info';
+    resultDiv.textContent = 'Enrolling...';
+    resultDiv.style.display = 'block';
+
     const fd = new FormData();
     fd.append('name', name);
     fd.append('overwrite', overwrite ? 'true' : 'false');
-    
+
     try {
         if (mode === 'full' || mode === 'rgb_only') {
             for (let i = 1; i <= 3; i++) {
@@ -291,23 +368,34 @@ document.getElementById('enrollForm').addEventListener('submit', async (e) => {
                 fd.append('ir', document.getElementById('ir').files[0]);
             }
         }
-        
-        const r = await fetch(`${getApiUrl()}/enroll/${mode}`, { method: 'POST', body: fd });
+
+        const r = await fetch(`${getApiUrl()}/enroll/${mode}`, {
+            method: 'POST',
+            headers: apiHeaders(),
+            body: fd
+        });
         const data = await r.json();
-        
+
         if (data.success) {
-            result.className = 'result success';
-            result.textContent = `✓ Enrolled: ${data.name}\n` +
+            resultDiv.className = 'result success';
+            resultDiv.textContent =
+                `✓ Enrolled: ${data.name}\n` +
                 `Mode: ${data.mode}\n` +
                 `Total enrolled: ${data.enrolled_count}\n` +
                 `Expected accuracy: ${data.expected_accuracy || 'N/A'}`;
+
+            // Show thumbnail if returned
+            if (data.thumbnail) {
+                showThumb('enrollThumbContainer', 'enrollThumb', 'enrollResult',
+                          data.thumbnail, 'success-border');
+            }
         } else {
-            result.className = 'result error';
-            result.textContent = `✗ ${data.error_code}: ${data.error}`;
+            resultDiv.className = 'result error';
+            resultDiv.textContent = `✗ ${data.error_code}: ${data.error}`;
         }
     } catch (err) {
-        result.className = 'result error';
-        result.textContent = `Network error: ${err.message}`;
+        resultDiv.className = 'result error';
+        resultDiv.textContent = `Network error: ${err.message}`;
     }
 });
 
@@ -330,45 +418,60 @@ function updateIdentifyFields() {
 
 document.getElementById('identifyForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const result = document.getElementById('identifyResult');
+    const resultDiv = document.getElementById('identifyResult');
     const mode = document.getElementById('idMode').value;
-    
-    result.className = 'result info';
-    result.textContent = 'Identifying...';
-    
+
+    // Reset UI
+    document.getElementById('identifyThumbContainer').style.display = 'none';
+    resultDiv.style.display = 'none';
+    resultDiv.className = 'result info';
+    resultDiv.textContent = 'Identifying...';
+    resultDiv.style.display = 'block';
+
     const fd = new FormData();
     fd.append('rgb', document.getElementById('idRgb').files[0]);
     if (mode === 'full') {
         fd.append('ir', document.getElementById('idIr').files[0]);
     }
     fd.append('top_k', document.getElementById('topK').value || '5');
-    
+
     try {
         const url = mode === 'full' ? '/identify' : '/identify/rgb_only';
-        const r = await fetch(`${getApiUrl()}${url}`, { method: 'POST', body: fd });
+        const r = await fetch(`${getApiUrl()}${url}`, {
+            method: 'POST',
+            headers: apiHeaders(),
+            body: fd
+        });
         const data = await r.json();
-        
+
+        // Always show thumbnail if present
+        if (data.thumbnail) {
+            const borderClass = data.identified ? 'success-border' : 'error-border';
+            showThumb('identifyThumbContainer', 'identifyThumb', 'identifyResult',
+                      data.thumbnail, borderClass);
+        }
+
         if (data.success && data.identified) {
             let html = `✓ IDENTIFIED: ${data.name}\nConfidence: ${data.confidence}%\n\nTop matches:\n`;
             data.top_matches.forEach(m => {
                 html += `  ${m.rank}. ${m.name} — ${m.confidence}%\n`;
             });
-            result.className = 'result success';
-            result.textContent = html;
+            resultDiv.className = 'result success';
+            resultDiv.textContent = html;
         } else if (data.success && !data.identified) {
             let html = `Status: ${data.status}\n${data.message}\n\nTop matches:\n`;
             (data.top_matches || []).forEach(m => {
                 html += `  ${m.rank}. ${m.name} — ${m.confidence}%\n`;
             });
-            result.className = 'result info';
-            result.textContent = html;
+            resultDiv.className = 'result info';
+            resultDiv.textContent = html;
         } else {
-            result.className = 'result error';
-            result.textContent = `${data.error_code}: ${data.error}`;
+            resultDiv.className = 'result error';
+            resultDiv.textContent = `${data.error_code}: ${data.error}`;
         }
     } catch (err) {
-        result.className = 'result error';
-        result.textContent = `Network error: ${err.message}`;
+        resultDiv.className = 'result error';
+        resultDiv.textContent = `Network error: ${err.message}`;
     }
 });
 
@@ -377,31 +480,54 @@ document.getElementById('identifyForm').addEventListener('submit', async (e) => 
 // ============================================================
 document.getElementById('verifyForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const result = document.getElementById('verifyResult');
-    
-    result.className = 'result info';
-    result.textContent = 'Verifying...';
-    
+    const resultDiv = document.getElementById('verifyResult');
+
+    // Reset UI
+    document.getElementById('verifyThumbContainer').style.display = 'none';
+    resultDiv.style.display = 'none';
+    resultDiv.className = 'result info';
+    resultDiv.textContent = 'Verifying...';
+    resultDiv.style.display = 'block';
+
     const fd = new FormData();
     fd.append('name', document.getElementById('verifyName').value.trim());
     fd.append('rgb', document.getElementById('verifyRgb').files[0]);
     fd.append('ir', document.getElementById('verifyIr').files[0]);
-    
+
+    // Show local preview immediately on verify (no thumbnail from API)
+    const rgbFile = document.getElementById('verifyRgb').files[0];
+    if (rgbFile) {
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+            showThumb('verifyThumbContainer', 'verifyThumb', 'verifyResult',
+                      ev.target.result, '');
+        };
+        reader.readAsDataURL(rgbFile);
+    }
+
     try {
-        const r = await fetch(`${getApiUrl()}/verify`, { method: 'POST', body: fd });
+        const r = await fetch(`${getApiUrl()}/verify`, {
+            method: 'POST',
+            headers: apiHeaders(),
+            body: fd
+        });
         const data = await r.json();
-        
+
         if (data.success) {
-            result.className = data.verified ? 'result success' : 'result error';
-            result.textContent = `${data.verified ? '✓' : '✗'} ${data.message}\n` +
-                `Confidence: ${data.confidence}%\nThreshold: ${(data.threshold * 100).toFixed(2)}%`;
+            document.getElementById('verifyThumb').className =
+                data.verified ? 'success-border' : 'error-border';
+            resultDiv.className = data.verified ? 'result success' : 'result error';
+            resultDiv.textContent =
+                `${data.verified ? '✓' : '✗'} ${data.message}\n` +
+                `Confidence: ${data.confidence}%\n` +
+                `Threshold: ${(data.threshold * 100).toFixed(2)}%`;
         } else {
-            result.className = 'result error';
-            result.textContent = `${data.error_code}: ${data.error}`;
+            resultDiv.className = 'result error';
+            resultDiv.textContent = `${data.error_code}: ${data.error}`;
         }
     } catch (err) {
-        result.className = 'result error';
-        result.textContent = `Network error: ${err.message}`;
+        resultDiv.className = 'result error';
+        resultDiv.textContent = `Network error: ${err.message}`;
     }
 });
 
@@ -414,7 +540,7 @@ async function loadList() {
     result.textContent = 'Loading...';
     
     try {
-        const r = await fetch(`${getApiUrl()}/enrolled`);
+        const r = await fetch(`${getApiUrl()}/enrolled`, { headers: apiHeaders() });
         const data = await r.json();
         
         if (data.success) {
@@ -443,7 +569,10 @@ async function clearDatabase() {
     if (!confirm('This will remove ALL enrolled people. Continue?')) return;
     
     try {
-        const r = await fetch(`${getApiUrl()}/enrolled/clear?confirm=yes`, { method: 'DELETE' });
+        const r = await fetch(`${getApiUrl()}/enrolled/clear?confirm=yes`, {
+            method: 'DELETE',
+            headers: apiHeaders()
+        });
         const data = await r.json();
         alert(data.success ? `Cleared ${data.cleared_count} people` : `Error: ${data.error}`);
         loadList();
