@@ -56,7 +56,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 import cv2
 import numpy as np
-from flask import Flask, request, jsonify, g
+from flask import Flask, request, jsonify, g, send_file
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 
@@ -337,6 +337,11 @@ def initialize_system():
 # ============================================================
 @app.route('/', methods=['GET'])
 def root():
+    # Serve frontend HTML if it exists
+    frontend_path = Path(__file__).parent / 'test_frontend.html'
+    if frontend_path.exists():
+        return send_file(str(frontend_path))
+    # Fallback to API info
     return success_response({
         'service': 'Palm Biometric API',
         'version': '2.0',
@@ -346,9 +351,9 @@ def root():
             'info': 'GET /info',
             'enrollment': {
                 'full': 'POST /enroll/full',
-                'rgb_only': 'POST /enroll/rgb_only',
                 'quick': 'POST /enroll/quick',
                 'quick_rgb': 'POST /enroll/quick_rgb',
+                'rgb_only': 'POST /enroll/rgb_only',
             },
             'identification': {
                 'identify': 'POST /identify',
@@ -362,7 +367,6 @@ def root():
             },
         },
     })
-
 
 @app.route('/health', methods=['GET'])
 def health():

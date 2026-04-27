@@ -111,7 +111,7 @@
 
     <div class="config">
         <strong>API URL:</strong>
-        <input type="text" id="apiUrl" value="http://localhost:5000" />
+        <input type="text" id="apiUrl" value="http://38.45.94.12:5000" />
         &nbsp;&nbsp;
         <strong>API Key:</strong>
         <input type="text" id="apiKey" value="palm2026demo" style="width:150px;" />
@@ -137,10 +137,10 @@
             <div class="form-group">
                 <label>Mode:</label>
                 <select id="enrollMode" onchange="updateEnrollFields()">
-                    <option value="quick">Quick (1 RGB + 1 IR — fastest, best for trained people)</option>
-                    <option value="full">Full (3 RGB + 3 IR — best accuracy, recommended)</option>
-                    <option value="rgb_only">RGB Only (3 RGB, IR auto-generated)</option>
-                    <option value="quick_rgb">Quick RGB (1 RGB, IR auto-generated)</option>
+                    <option value="quick">Quick — 1 RGB + 1 IR</option>
+                    <option value="full">Full — 3 RGB + 3 IR (best accuracy)</option>
+                    <option value="rgb_only">RGB Only — 3 RGB (no IR needed)</option>
+                    <option value="quick_rgb">Quick RGB — 1 RGB only (fastest)</option>
                 </select>
             </div>
             <div id="enrollFields"></div>
@@ -302,35 +302,79 @@ async function checkHealth() {
 function updateEnrollFields() {
     const mode = document.getElementById('enrollMode').value;
     const container = document.getElementById('enrollFields');
-    
+
     if (mode === 'full') {
         container.innerHTML = `
-            <p style="color:#718096;font-size:13px;margin-bottom:10px;">3 RGB + 3 IR images. Best accuracy.</p>
+            <div style="background:#f0fff4;border:1px solid #9ae6b4;border-radius:6px;padding:10px;margin-bottom:10px;font-size:13px;color:#276749;">
+                Upload 3 RGB + 3 IR palm images for best accuracy
+            </div>
             <div class="form-grid">
-                <div class="form-group"><label>RGB 1:</label><input type="file" id="rgb_1" accept="image/*" required /></div>
-                <div class="form-group"><label>RGB 2:</label><input type="file" id="rgb_2" accept="image/*" required /></div>
-                <div class="form-group"><label>RGB 3:</label><input type="file" id="rgb_3" accept="image/*" required /></div>
-                <div class="form-group"><label>IR 1:</label><input type="file" id="ir_1" accept="image/*" required /></div>
-                <div class="form-group"><label>IR 2:</label><input type="file" id="ir_2" accept="image/*" required /></div>
-                <div class="form-group"><label>IR 3:</label><input type="file" id="ir_3" accept="image/*" required /></div>
+                <div class="form-group">
+                    <label>📷 RGB Image 1</label>
+                    <input type="file" id="rgb_1" accept="image/*" required />
+                </div>
+                <div class="form-group">
+                    <label>📷 RGB Image 2</label>
+                    <input type="file" id="rgb_2" accept="image/*" required />
+                </div>
+                <div class="form-group">
+                    <label>📷 RGB Image 3</label>
+                    <input type="file" id="rgb_3" accept="image/*" required />
+                </div>
+                <div class="form-group">
+                    <label>🔴 IR Image 1</label>
+                    <input type="file" id="ir_1" accept="image/*" required />
+                </div>
+                <div class="form-group">
+                    <label>🔴 IR Image 2</label>
+                    <input type="file" id="ir_2" accept="image/*" required />
+                </div>
+                <div class="form-group">
+                    <label>🔴 IR Image 3</label>
+                    <input type="file" id="ir_3" accept="image/*" required />
+                </div>
             </div>`;
     } else if (mode === 'rgb_only') {
         container.innerHTML = `
-            <p style="color:#718096;font-size:13px;margin-bottom:10px;">3 RGB only. IR auto-generated.</p>
+            <div style="background:#ebf8ff;border:1px solid #90cdf4;border-radius:6px;padding:10px;margin-bottom:10px;font-size:13px;color:#2c5282;">
+                Upload 3 RGB images — IR will be auto-generated
+            </div>
             <div class="form-grid">
-                <div class="form-group"><label>RGB 1:</label><input type="file" id="rgb_1" accept="image/*" required /></div>
-                <div class="form-group"><label>RGB 2:</label><input type="file" id="rgb_2" accept="image/*" required /></div>
-                <div class="form-group"><label>RGB 3:</label><input type="file" id="rgb_3" accept="image/*" required /></div>
+                <div class="form-group">
+                    <label>📷 RGB Image 1</label>
+                    <input type="file" id="rgb_1" accept="image/*" required />
+                </div>
+                <div class="form-group">
+                    <label>📷 RGB Image 2</label>
+                    <input type="file" id="rgb_2" accept="image/*" required />
+                </div>
+                <div class="form-group">
+                    <label>📷 RGB Image 3</label>
+                    <input type="file" id="rgb_3" accept="image/*" required />
+                </div>
             </div>`;
     } else if (mode === 'quick') {
         container.innerHTML = `
-            <p style="color:#718096;font-size:13px;margin-bottom:10px;">1 RGB + 1 IR. Fast.</p>
-            <div class="form-group"><label>RGB:</label><input type="file" id="rgb" accept="image/*" required /></div>
-            <div class="form-group"><label>IR:</label><input type="file" id="ir" accept="image/*" required /></div>`;
+            <div style="background:#fffff0;border:1px solid #f6e05e;border-radius:6px;padding:10px;margin-bottom:10px;font-size:13px;color:#744210;">
+                Upload 1 RGB + 1 IR image — fastest enrollment
+            </div>
+            <div class="form-group">
+                <label>📷 RGB Image</label>
+                <input type="file" id="rgb" accept="image/*" required />
+            </div>
+            <div class="form-group">
+                <label>🔴 IR Image</label>
+                <input type="file" id="ir" accept="image/*" required />
+            </div>`;
     } else {
         container.innerHTML = `
-            <p style="color:#718096;font-size:13px;margin-bottom:10px;">1 RGB only. IR auto-generated.</p>
-            <div class="form-group"><label>RGB:</label><input type="file" id="rgb" accept="image/*" required /></div>`;
+            <div style="background:#fff5f5;border:1px solid #feb2b2;border-radius:6px;padding:10px;margin-bottom:10px;font-size:13px;color:#742a2a;">
+                Upload 1 RGB image only — IR auto-generated
+            </div>
+            <div class="form-group">
+                <label>📷 RGB Image</label>
+                <input type="file" id="rgb" accept="image/*" required />
+            </div>`;
     }
 }
 
@@ -381,8 +425,7 @@ document.getElementById('enrollForm').addEventListener('submit', async (e) => {
             resultDiv.textContent =
                 `✓ Enrolled: ${data.name}\n` +
                 `Mode: ${data.mode}\n` +
-                `Total enrolled: ${data.enrolled_count}\n` +
-                `Expected accuracy: ${data.expected_accuracy || 'N/A'}`;
+                `Total enrolled: ${data.enrolled_count}`;
 
             // Show thumbnail if returned
             if (data.thumbnail) {
@@ -405,14 +448,23 @@ document.getElementById('enrollForm').addEventListener('submit', async (e) => {
 function updateIdentifyFields() {
     const mode = document.getElementById('idMode').value;
     const container = document.getElementById('identifyFields');
-    
+
     if (mode === 'full') {
         container.innerHTML = `
-            <div class="form-group"><label>RGB image:</label><input type="file" id="idRgb" accept="image/*" required /></div>
-            <div class="form-group"><label>IR image:</label><input type="file" id="idIr" accept="image/*" required /></div>`;
+            <div class="form-group">
+                <label>📷 RGB Image (query)</label>
+                <input type="file" id="idRgb" accept="image/*" required />
+            </div>
+            <div class="form-group">
+                <label>🔴 IR Image (query)</label>
+                <input type="file" id="idIr" accept="image/*" required />
+            </div>`;
     } else {
         container.innerHTML = `
-            <div class="form-group"><label>RGB image:</label><input type="file" id="idRgb" accept="image/*" required /></div>`;
+            <div class="form-group">
+                <label>📷 RGB Image (query) — IR auto-generated</label>
+                <input type="file" id="idRgb" accept="image/*" required />
+            </div>`;
     }
 }
 
